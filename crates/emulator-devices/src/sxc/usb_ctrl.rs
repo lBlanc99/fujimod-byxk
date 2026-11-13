@@ -9,6 +9,7 @@ use std::sync::{Arc, Mutex};
 #[derive(Default)]
 pub struct NandState {
     pub page_addr: u32,
+    pub raw_count: usize,
 }
 
 pub type NandLink = Arc<Mutex<NandState>>;
@@ -48,7 +49,11 @@ impl Device for UsbController {
         let off = address - self.base;
         match off {
             0x08 | 0x0a => 0xf1ec,
-            0x22 => 0x0005,
+            // NAND FIFO spare read: byte 7 must be 0xff for valid ECC/spare marker (0x9b38, 0x9b4c).
+            0x1c => 0xff00,
+            // bit0 ready, bit 1 ready, bits 2..5 = per-512-byte-sector ECC/transfer done (0x6d7c, 0x6fb8, 0x6ff4, 0x9790, 0x97a0).
+            0x20 | 0x22 => 0x003f,
+            0x42 => 0x0000,
             _ => u64::from(*self.regs.get(&off).unwrap_or(&0)),
         }
     }

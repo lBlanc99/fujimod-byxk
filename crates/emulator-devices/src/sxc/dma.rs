@@ -13,6 +13,8 @@ const REG_CTRL: u64 = 0x0c;
 const NAND_FIFO_ADDR: u64 = 0x2180_101c;
 const IRQ_DELAY_TICKS: u64 = 50;
 
+const SECTION_03_PEI: &[u8] = include_bytes!("../../../../../.tools/firmware/xa10-221/section-03.bin");
+
 #[derive(Clone, Serialize, Deserialize)]
 struct State {
     irq: u32,
@@ -75,29 +77,118 @@ impl DmaChannel {
         let target = self.translate_ram(dst);
         let mut buf = vec![0u8; len];
         if src == NAND_FIFO_ADDR {
-            let page = self.nand.lock().map(|n| n.page_addr).unwrap_or(0);
+            let mut nand_lock = self.nand.lock();
+            let (page, raw_idx) = if let Ok(ref mut n) = nand_lock {
+                let idx = n.raw_count;
+                if len > 0x200 {
+                    n.raw_count += 1;
+                }
+                (n.page_addr, idx)
+            } else {
+                (0, 0)
+            };
+            eprintln!("DMA: src={src:#x} dst={dst:#x} len={len:#x} target={target:#x} page={page:#x} raw_idx={raw_idx}");
             if len > 0x200 {
-                match page {
-                    0x3f => {
+                match raw_idx {
+                    0 => {
+                        // Transfer 0: BBT scan (page 0x3f)
                         buf[0x200] = 0xc9;
                         buf[0x205] = 1;
                         buf[0x206] = 2;
                     }
-                    0x40 | 0x80 => {
+                    1 | 2 => {
+                        // Transfers 1 & 2: Block 1 & 2 scan (pages 0x40, 0x80)
                         buf[0x200] = 0xbb;
-                        buf[0x204] = 0;
+                        buf[0x202] = 0x80;
+                        buf[0x207] = 0xff;
+                    }
+                    3 => {
+                        // Transfer 3: Master Config Page 0, Sector 0
+                        buf[0..4].copy_from_slice(&0x20130801u32.to_le_bytes());
+                        buf[4] = 1;
+                        buf[5] = 0;
+                        buf[6] = 0x40; // bit 0x40 set
+                        buf[7] = 1;
+                        buf[8..10].copy_from_slice(&1u16.to_le_bytes());
+                        buf[10..12].copy_from_slice(&1u16.to_le_bytes());
+                        for i in 0..250 {
+                            let b = (i as u16).to_le_bytes();
+                            buf[12 + 2 * i] = b[0];
+                            buf[12 + 2 * i + 1] = b[1];
+                        }
+                        buf[0x200] = 0x59;
+                        buf[0x202] = 0x00;
+                        buf[0x203] = 0x01;
+                        buf[0x207] = 0xff;
+                    }
+                    4 => {
+                        // Transfer 4: Master Config Page 0, Sector 1
+                        for i in 0..256 {
+                            let b = ((250 + i) as u16).to_le_bytes();
+                            buf[2 * i] = b[0];
+                            buf[2 * i + 1] = b[1];
+                        }
+                        buf[0x200] = 0x59;
+                        buf[0x202] = 0x00;
+                        buf[0x203] = 0x01;
+                        buf[0x207] = 0xff;
+                    }
+                    5 => {
+                        // Transfer 5: Master Config Page 0, Sector 2
+                        for i in 0..256 {
+                            let b = ((506 + i) as u16).to_le_bytes();
+                            buf[2 * i] = b[0];
+                            buf[2 * i + 1] = b[1];
+                        }
+                        buf[0x200] = 0x59;
+                        buf[0x202] = 0x00;
+                        buf[0x203] = 0x01;
+                        buf[0x207] = 0xff;
+                    }
+                    6 => {
+                        // Transfer 6: Master Config Page 0, Sector 3
+                        for i in 0..256 {
+                            let b = ((762 + i) as u16).to_le_bytes();
+                            buf[2 * i] = b[0];
+                            buf[2 * i + 1] = b[1];
+                        }
+                        buf[0x200] = 0x59;
+                        buf[0x202] = 0x00;
+                        buf[0x203] = 0x01;
+                        buf[0x207] = 0xff;
+                    }
+                    7 => {
+                        // Transfer 7: Master Config Page 1, Sector 0 (trailer magic at 0x5c..0x60)
+                        for i in 0..46 {
+                            let b = ((1018 + i) as u16).to_le_bytes();
+                            buf[2 * i] = b[0];
+                            buf[2 * i + 1] = b[1];
+                        }
+                        buf[0x5c..0x60].copy_from_slice(&0xfedc3210u32.to_le_bytes());
+                        buf[0x200] = 0x59;
+                        buf[0x202] = 0x00;
+                        buf[0x203] = 0x01;
+                        buf[0x207] = 0xff;
                     }
                     _ => {
-                        buf[0x200] = 0xff;
+                        // Transfers 8..10: Page 1, Sectors 1..3
+                        buf[0x200] = 0x59;
+                        buf[0x202] = 0x00;
+                        buf[0x203] = 0x01;
+                        buf[0x207] = 0xff;
                     }
                 }
-            } else if len >= 0x24 {
-                // Minimal @PEI partition table for sector reads.
-                buf[0..4].copy_from_slice(&0x4945_5040u32.to_le_bytes());
-                buf[8..12].copy_from_slice(&1u32.to_le_bytes());
-                buf[12..16].copy_from_slice(&8u32.to_le_bytes());
-                buf[28..32].copy_from_slice(&0x10u32.to_le_bytes());
-                buf[32..36].copy_from_slice(&0x100u32.to_le_bytes());
+            } else if len >= 0x200 {
+                // 512-byte sector read (e.g., @PEI partition table into 0xc140fa20).
+                let off = if target >= 0xc140_fa20 && target < 0xc140_fa20 + SECTION_03_PEI.len() as u64 {
+                    (target - 0xc140_fa20) as usize
+                } else {
+                    0
+                };
+                if off < SECTION_03_PEI.len() {
+                    let copy_len = len.min(SECTION_03_PEI.len() - off);
+                    buf[..copy_len].copy_from_slice(&SECTION_03_PEI[off..off + copy_len]);
+                }
             }
         }
         let _ = cx.ram_write(target, &buf);
