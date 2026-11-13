@@ -702,7 +702,7 @@ impl Board {
                 .configure_core_interrupts(
                     controller.core,
                     controller.device,
-                    Box::new(controller.inputs),
+                    controller.inputs,
                 )
                 .map_err(error)?;
         }

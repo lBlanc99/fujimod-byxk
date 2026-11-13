@@ -110,6 +110,7 @@ pub struct Resources {
     pub controllers: BTreeMap<String, irq::Inputs>,
     pub clocks: BTreeMap<String, clock::Output>,
     pub software_sources: BTreeSet<String>,
+    pub sxc_nand: Option<fujimod_emulator_devices::sxc::usb_ctrl::NandLink>,
 }
 impl Resources {
     pub fn optical_position(&self, name: &str) -> Result<optics::Position, String> {
@@ -247,7 +248,8 @@ impl Resources {
 pub struct CoreInterrupts {
     pub core: usize,
     pub device: usize,
-    pub inputs: irq::Inputs,
+    pub inputs: Box<dyn fujimod_emulator_devices::bus::CoreInterrupts>,
+    pub exr2_inputs: Option<irq::Inputs>,
 }
 
 mod checkpoint;

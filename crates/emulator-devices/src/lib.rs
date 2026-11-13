@@ -24,6 +24,7 @@ pub mod parts;
 pub mod record;
 pub mod signals;
 pub mod storage_reads;
+pub mod sxc;
 #[doc(hidden)]
 pub mod test_host;
 pub mod work;

@@ -51,7 +51,11 @@ pub fn controllers(
                 .iter()
                 .find(|c| c.device == *node)
                 .ok_or_else(|| format!("{name} is not an interrupt controller"))?;
-            Ok((controller.core, controller.inputs.clone()))
+            let exr2 = controller
+                .exr2_inputs
+                .clone()
+                .ok_or_else(|| format!("{name} is not an EXR II interrupt controller"))?;
+            Ok((controller.core, exr2))
         })
         .collect()
 }

@@ -1188,7 +1188,7 @@ fn open_prepared_epoch(
         board.configure_core_interrupts(
             controller.core,
             controller.device,
-            Box::new(controller.inputs),
+            controller.inputs,
         )?;
     }
     board.write_physical(prepared.boot_rom.address, &boot_rom)?;

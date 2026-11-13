@@ -223,7 +223,7 @@ fn native_software_interrupt_wiring_releases_the_declared_entry_at_the_existing_
             )
             .unwrap();
         for c in built.core_interrupts {
-            b.configure_core_interrupts(c.core, c.device, Box::new(c.inputs))
+            b.configure_core_interrupts(c.core, c.device, c.inputs)
                 .unwrap();
         }
         for (address, words) in [

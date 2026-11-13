@@ -20,6 +20,72 @@ pub fn register_interface_models(constructors: &mut Constructors) {
     constructors.add("exr-system-control", exr_system_control);
     constructors.add("exr-clocks", exr_clocks);
     constructors.add("exr-memory-interface", exr_memory_interface);
+    constructors.add("sxc-intc", sxc_intc);
+    constructors.add("sxc-timers", sxc_timers);
+    constructors.add("sxc-usb-ctrl", sxc_usb_ctrl);
+    constructors.add("sxc-dma-channel", sxc_dma_channel);
+}
+
+fn sxc_intc(builder: Builder<'_>, model: Model) -> Result<Built, String> {
+    let Builder { id, built, .. } = builder;
+    let Model::SxcIntc { core, base } = model else {
+        return Err("constructor called for another model kind".into());
+    };
+    if core >= 2 || built.core_interrupts.iter().any(|c| c.core == core) {
+        return Err("invalid or duplicate SXC core interrupt controller".into());
+    }
+    let inputs = fujimod_emulator_devices::sxc::intc::Inputs::default();
+    let controller = fujimod_emulator_devices::sxc::intc::InterruptController::new(base, inputs.clone());
+    built.core_interrupts.push(CoreInterrupts {
+        core,
+        device: id,
+        inputs: Box::new(inputs),
+        exr2_inputs: None,
+    });
+    Ok(Built::Device(Box::new(controller)))
+}
+
+fn sxc_timers(_builder: Builder<'_>, model: Model) -> Result<Built, String> {
+    let Model::SxcTimers { base } = model else {
+        return Err("constructor called for another model kind".into());
+    };
+    Ok(Built::Device(Box::new(
+        fujimod_emulator_devices::sxc::timer::Timers::new(base),
+    )))
+}
+
+fn sxc_usb_ctrl(builder: Builder<'_>, model: Model) -> Result<Built, String> {
+    let Model::SxcUsbCtrl { base } = model else {
+        return Err("constructor called for another model kind".into());
+    };
+    let nand = builder
+        .resources
+        .sxc_nand
+        .get_or_insert_with(Default::default)
+        .clone();
+    Ok(Built::Device(Box::new(
+        fujimod_emulator_devices::sxc::usb_ctrl::UsbController::with_nand(base, nand),
+    )))
+}
+
+fn sxc_dma_channel(builder: Builder<'_>, model: Model) -> Result<Built, String> {
+    let Model::SxcDmaChannel {
+        base,
+        core,
+        irq,
+        ram_base,
+    } = model
+    else {
+        return Err("constructor called for another model kind".into());
+    };
+    let nand = builder
+        .resources
+        .sxc_nand
+        .get_or_insert_with(Default::default)
+        .clone();
+    Ok(Built::Device(Box::new(
+        fujimod_emulator_devices::sxc::dma::DmaChannel::with_nand(base, core, irq, ram_base, nand),
+    )))
 }
 
 fn exr_memory_interface(_builder: Builder<'_>, model: Model) -> Result<Built, String> {
@@ -123,7 +189,8 @@ fn interrupt_controller(builder: Builder<'_>, model: Model) -> Result<Built, Str
         built.core_interrupts.push(CoreInterrupts {
             core,
             device: id,
-            inputs,
+            inputs: Box::new(inputs.clone()),
+            exr2_inputs: Some(inputs),
         });
         Box::new(controller)
     }))

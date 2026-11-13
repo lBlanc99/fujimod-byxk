@@ -457,7 +457,7 @@ impl Session {
         )?;
         board.set_execution_policy(policy)?;
         for irq in built.core_interrupts {
-            board.configure_core_interrupts(irq.core, irq.device, Box::new(irq.inputs))?;
+            board.configure_core_interrupts(irq.core, irq.device, irq.inputs)?;
         }
         for image in images {
             board.write_physical(image.base, &image.bytes)?;

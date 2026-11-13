@@ -513,6 +513,22 @@ pub enum Model {
         profile: serde_json::Value,
         routes: String,
     },
+    SxcIntc {
+        core: usize,
+        base: u64,
+    },
+    SxcTimers {
+        base: u64,
+    },
+    SxcUsbCtrl {
+        base: u64,
+    },
+    SxcDmaChannel {
+        base: u64,
+        core: usize,
+        irq: u32,
+        ram_base: u64,
+    },
     Adapter {
         adapter: Adapter,
     },
@@ -594,6 +610,10 @@ impl Model {
             Model::Block11000 { .. } => "block11000",
             Model::FaceDetector { .. } => "face-detector",
             Model::FaceResults { .. } => "face-results",
+            Model::SxcIntc { .. } => "sxc-intc",
+            Model::SxcTimers { .. } => "sxc-timers",
+            Model::SxcUsbCtrl { .. } => "sxc-usb-ctrl",
+            Model::SxcDmaChannel { .. } => "sxc-dma-channel",
             Model::Adapter { .. } => "adapter",
         }
     }
