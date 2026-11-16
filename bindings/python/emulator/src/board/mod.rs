@@ -238,13 +238,18 @@ impl Board {
         Ok(self.board()?.execution_policy().name())
     }
     #[staticmethod]
-    #[pyo3(signature=(definition, storage_image=None, card_files=Vec::new()))]
+    #[pyo3(signature=(definition, storage_image=None, card_files=Vec::new(), card_media=Vec::new()))]
     fn from_xp4(
         definition: &str,
         storage_image: Option<Vec<u8>>,
         card_files: Vec<(String, Vec<u8>)>,
+        card_media: Vec<(usize, PyRef<'_, CardMedium>)>,
     ) -> PyResult<Self> {
-        let session = xp4_backend::open(definition, storage_image, card_files)?;
+        let card_media = card_media
+            .into_iter()
+            .map(|(host, medium)| (host, medium.0.clone()))
+            .collect();
+        let session = xp4_backend::open(definition, storage_image, card_files, card_media)?;
         Ok(Self {
             driver: None,
             memory_watch: None,
@@ -804,11 +809,8 @@ impl Board {
         {
             return Err(PyValueError::new_err("isolated call is already active"));
         }
-        if self.session()?.definition["devices"] != serde_json::json!({"kind":"none"}) {
-            return Err(PyValueError::new_err(
-                "Checked routines require a device-free board",
-            ));
-        }
+        // The checked caller admits device access only inside the windows
+        // the options declare; a board with devices and none declared refuses.
         let result=fujimod_emulator::board::harness::arm64::checked::checked_call_with(self.board_mut()?,json(options)?,|hit,snapshots| {
             let callback=callback.as_ref().ok_or("Missing dynamic stub callback")?;
             let snapshots=snapshots.iter().map(|(address,bytes)|(*address,PyBytes::new(py,bytes))).collect::<Vec<_>>();

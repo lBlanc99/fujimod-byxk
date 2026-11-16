@@ -410,6 +410,11 @@ class BootCombination(TypedDict, total=False):
     usb: NotRequired[bool | None]
 
 
+class BootFlag(TypedDict, total=False):
+    address: Required[int]
+    mask: Required[int]
+
+
 class BootHold(TypedDict, total=False):
     id: Required[str]
     stage: NotRequired[str | None]
@@ -2551,6 +2556,12 @@ class HardwareCoreWindow(TypedDict, total=False):
     size: Required[int]
 
 
+class HardwareCurtains(TypedDict, total=False):
+    first_output: Required[int]
+    light_offset_seconds: Required[int]
+    second_output: Required[int]
+
+
 class HardwareDecompressor(TypedDict, total=False):
     base: Required[int]
     basis: NotRequired[str | None]
@@ -2800,6 +2811,7 @@ class HardwareImagingRegisters(TypedDict, total=False):
     error_irqs: Required[list[int]]
     input_buffer: Required[HardwareInputBuffer]
     normal_irqs: Required[list[int]]
+    raw_dma_irqs: NotRequired[list[int] | None]
     receiver_base: Required[int]
     reset_ticks: Required[int]
     timing_irqs: Required[list[int]]
@@ -2968,12 +2980,13 @@ class HardwareProjection(TypedDict, total=False):
 
 
 class HardwareRadiometry(TypedDict, total=False):
+    curtains: NotRequired[HardwareCurtains | None]
     mode_change_frames: Required[int]
     pixel_clock_hz: Required[int]
-    projection: Required[HardwareProjection]
+    projection: NotRequired[HardwareProjection | None]
     rolling_references: Required[list[HardwareRollingReference]]
     saturation_lux_seconds: Required[int]
-    shutter: Required[HardwareShutter]
+    shutter: NotRequired[HardwareShutter | None]
     shutter_output: Required[int]
     ticks_per_second: Required[int]
     white_luminance: Required[int]
@@ -3066,11 +3079,13 @@ class HardwareRegisterLayouts(TypedDict, total=False):
     register_blocks: NotRequired[list[HardwareRegisterBlock]]
     reset_gates: NotRequired[HardwareResetGates | None]
     sd_host_clocks: NotRequired[HardwareSdHostClocks | None]
+    sd_hosts: NotRequired[list[HardwareSdHost]]
     serial_flash: NotRequired[HardwareSerialFlash | None]
     serial_ports: NotRequired[HardwareSerialPorts | None]
     spi: NotRequired[dict[str, HardwareSpi] | None]
     temperature: NotRequired[HardwareAdc | None]
     usb: NotRequired[HardwareUsbRegisters | None]
+    usb_phy: NotRequired[HardwareUsbPhy | None]
     xpp_i2c: NotRequired[HardwareXppI2cBuses | None]
     xpp_sd: NotRequired[HardwareXppSdHost | None]
     xpp_usb: NotRequired[HardwareXppUsb | None]
@@ -3110,6 +3125,19 @@ class HardwareRollingReference(TypedDict, total=False):
     lines: Required[int]
     mode: Required[int]
     vertical: Required[int]
+
+
+class HardwareSdHost(TypedDict, total=False):
+    base: Required[int]
+    basis: Required[str]
+    capabilities: Required[int]
+    capabilities_2: Required[int]
+    clock_ticks: Required[int]
+    irq_route: NotRequired[int | None]
+    size: Required[int]
+    slot_and_version: Required[int]
+    transfer_ticks: Required[int]
+    vendor_offsets: NotRequired[list[int]]
 
 
 class HardwareSdHostClocks(TypedDict, total=False):
@@ -3242,6 +3270,12 @@ class HardwareUsb(TypedDict, total=False):
     out_endpoints: Required[list[list[int]]]
     packet_bytes: Required[int]
     transfer_ticks: Required[int]
+
+
+class HardwareUsbPhy(TypedDict, total=False):
+    base: Required[int]
+    basis: Required[str]
+    size: Required[int]
 
 
 class HardwareUsbRegisters(TypedDict, total=False):
@@ -4183,7 +4217,7 @@ class PhysicalControlsVariant0(TypedDict, total=False):
     service: NotRequired[BootCombination]
 
 
-type PictureLayout = Literal["bgra8888-straight"]
+type PictureLayout = Literal["abgr8888-straight"]
 
 
 type PixelFormat = Literal["bgra8888"]
@@ -4199,6 +4233,7 @@ class PowerControlAssembly(TypedDict, total=False):
 
 class PowerOff(TypedDict, total=False):
     alarm: Required[AlarmRegisters]
+    boot_flag: NotRequired[BootFlag | None]
     deadline_parameter: NotRequired[int | None]
     entry: Required[int]
     fixed_interval: NotRequired[AlarmInterval | None]
@@ -4270,6 +4305,7 @@ class ProfileFieldSourceVariant3(TypedDict, total=False):
 class ProfileRecord(TypedDict, total=False):
     block: Required[int]
     bytes: Required[int]
+    copies: NotRequired[int | None]
     defaults: Required[UpdateRange]
     defaults_offset: Required[int]
     fields: Required[list[SettingsField]]
@@ -5548,6 +5584,7 @@ class SettingsProfile(TypedDict, total=False):
     derived_fields: NotRequired[list[ProfileField]]
     header: Required[UpdateRange]
     loader_offset: NotRequired[int | None]
+    power_register: NotRequired[int | None]
     records: Required[dict[str, ProfileRecord]]
 
 
